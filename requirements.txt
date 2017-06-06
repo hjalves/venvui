@@ -1,0 +1,4 @@
+aiohttp
+colorlog
+PyYAML
+pkginfo
