@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from aiohttp import web
-
-
-async def index(request):
-    return web.Response(text='Hello world!')
+from aiohttp.web_response import StreamResponse
 
 
 async def list_projects(request):
@@ -75,3 +72,38 @@ async def list_deployments(request):
         {'deployments': [v.to_dict() for v
                          in deployment_svc.list_deployments()]}
     )
+
+
+async def list_project_deployments(request):
+    deployment_svc = request.app['deployments']
+    project_name = request.match_info['name']
+
+    deployment_list = deployment_svc.list_deployments(project_name)
+    return web.json_response({
+        'deployments': [v.to_dict() for v in deployment_list]
+    })
+
+async def get_deployment(request):
+    deployment_svc = request.app['deployments']
+    key = request.match_info['key']
+
+    deployment = deployment_svc.get_deployment(key)
+
+    return web.json_response(deployment.to_dict())
+
+
+async def get_deployment_log(request):
+    deployment_svc = request.app['deployments']
+    key = request.match_info['key']
+
+    deployment = deployment_svc.get_deployment(key)
+
+    response = StreamResponse(status=200, reason='OK')
+    response.headers['Content-Type'] = 'text/plain; charset=utf-8'
+    await response.prepare(request)
+
+    async for timestamp, channel, line in deployment.log():
+        text = '%s|%s|%s\n' % (timestamp.isoformat(), channel, line)
+        response.write(text.encode('utf-8'))
+
+    return response

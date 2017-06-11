@@ -43,13 +43,15 @@ def main():
 
 
 def setup_routes(app):
-    app.router.add_get('/', views.index)
     app.router.add_get('/projects', views.list_projects)
     app.router.add_post('/projects', views.create_project)
     app.router.add_get('/projects/{name}', views.get_project)
     app.router.add_post('/projects/{name}/deployments', views.start_deployment)
+    app.router.add_get('/projects/{name}/deployments', views.list_project_deployments)
     app.router.add_get('/packages', views.list_packages)
     app.router.add_get('/deployments', views.list_deployments)
+    app.router.add_get('/deployments/{key}', views.get_deployment)
+    app.router.add_get('/deployments/{key}/log', views.get_deployment_log)
 
 
 def load_config(path):
