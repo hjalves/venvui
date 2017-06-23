@@ -37,6 +37,9 @@ async def get_project(request):
     project_svc = request.app['projects']
     name = request.match_info['name']
     project = project_svc.get_project(name)
+    if not project:
+        return web.HTTPNotFound(reason="Project not found")
+
     return web.json_response({
         'name': project.name,
         'pathname': project.pathname,
@@ -50,6 +53,18 @@ async def list_packages(request):
 
     packages = package_svc.list_packages()
     return web.json_response(packages)
+
+
+async def upload_package(request):
+    package_svc = request.app['packages']
+    saved = []
+    multipart = await request.multipart()
+
+    async for part in multipart:
+        if part.filename:
+            pkg = await package_svc.save_package_from_part(part)
+            saved.append(pkg)
+    return web.json_response({'saved': saved})
 
 
 async def start_deployment(request):

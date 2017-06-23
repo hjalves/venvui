@@ -13,6 +13,7 @@ from venvui import views
 from venvui.services import ProjectService
 from venvui.services import PackageService
 from venvui.services import DeploymentService
+from venvui.utils.misc import json_error
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,14 @@ def main():
     logger.info('Logging configured!')
 
 
-    package_svc = PackageService(package_root=config['package_path'])
+    package_svc = PackageService(package_root=config['package_path'],
+                                 temp_path=config['temp_path'])
     deploy_svc = DeploymentService()
     project_svc = ProjectService(project_root=config['project_path'],
                                  deployment_svc=deploy_svc,
                                  package_svc=package_svc)
 
-    app = web.Application()
+    app = web.Application(middlewares=[error_middleware])
     app['config'] = config
     app['projects'] = project_svc
     app['packages'] = package_svc
@@ -46,12 +48,28 @@ def setup_routes(app):
     app.router.add_get('/projects', views.list_projects)
     app.router.add_post('/projects', views.create_project)
     app.router.add_get('/projects/{name}', views.get_project)
+    app.router.add_get('/projects/{name}/deployments',
+                       views.list_project_deployments)
     app.router.add_post('/projects/{name}/deployments', views.start_deployment)
-    app.router.add_get('/projects/{name}/deployments', views.list_project_deployments)
     app.router.add_get('/packages', views.list_packages)
+    app.router.add_post('/packages', views.upload_package)
     app.router.add_get('/deployments', views.list_deployments)
     app.router.add_get('/deployments/{key}', views.get_deployment)
     app.router.add_get('/deployments/{key}/log', views.get_deployment_log)
+
+
+async def error_middleware(app, handler):
+    async def middleware_handler(request):
+        try:
+            response = await handler(request)
+            if response.status >= 400:
+                return json_error(response.reason, response.status)
+            return response
+        except web.HTTPException as ex:
+            if ex.status >= 400:
+                return json_error(ex.reason, ex.status)
+            raise
+    return middleware_handler
 
 
 def load_config(path):

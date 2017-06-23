@@ -30,8 +30,10 @@ class ProjectService:
 
     def get_project(self, name):
         path = self.project_root / name
-        # noinspection PyTypeChecker
-        return Project.load_from_path(self, path)
+        try:
+            return Project.load_from_path(self, path)
+        except FileNotFoundError:
+            return None
 
 
 class Project:
