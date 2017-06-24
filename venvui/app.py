@@ -52,8 +52,21 @@ def setup_routes(app):
     app.router.add_get('/projects/{name}/deployments',
                        views.list_project_deployments)
     app.router.add_post('/projects/{name}/deployments', views.start_deployment)
+
+    app.router.add_get('/projects/{name}/configs', views.get_config_files)
+    app.router.add_post('/projects/{name}/configs', views.add_config_file)
+    app.router.add_get('/projects/{name}/configs/{config}',
+                       views.get_config_file)
+    app.router.add_put('/projects/{name}/configs/{config}',
+                       views.change_config_file)
+    app.router.add_delete('/projects/{name}/configs/{config}',
+                          views.remove_config_file)
+    app.router.add_post('/projects/{name}/configs/{config}/install',
+                        views.install_config_file)
+
     app.router.add_get('/packages', views.list_packages)
     app.router.add_post('/packages', views.upload_package)
+
     app.router.add_get('/deployments', views.list_deployments)
     app.router.add_get('/deployments/{key}', views.get_deployment)
     app.router.add_get('/deployments/{key}/log', views.get_deployment_log)

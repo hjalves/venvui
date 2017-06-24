@@ -123,3 +123,29 @@ async def get_deployment_log(request):
         response.write(text.encode('utf-8'))
 
     return response
+
+
+async def get_config_files(request):
+    pass
+
+
+async def get_config_file(request):
+    pass
+
+
+async def add_config_file(request):
+    pass
+
+
+async def change_config_file(request):
+    pass
+
+
+async def remove_config_file(request):
+    pass
+
+
+async def install_config_file(request):
+    pass
+
+

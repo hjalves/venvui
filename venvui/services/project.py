@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from venvui.utils.confgen import ConfigGenerator
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,11 +42,12 @@ class Project:
     config_filename = 'project.yaml'
     venv_pathname = 'venv'
 
-    def __init__(self, svc, path, name, created_at=None):
+    def __init__(self, svc, path, name, created_at=None, config_files=None):
         self.svc = svc
         self.path = Path(path)
         self.name = name
         self.created_at = created_at or datetime.datetime.utcnow()
+        self.config_files = config_files or {}
 
     @classmethod
     def load_from_path(cls, svc, path):
@@ -57,7 +60,8 @@ class Project:
     @property
     def config(self):
         return {'name': self.name,
-                'created_at': self.created_at}
+                'created_at': self.created_at,
+                'config_files': self.config_files}
 
     @property
     def pathname(self):
@@ -87,3 +91,32 @@ class Project:
         venv_root = self.path / self.venv_pathname
         return self.svc.deployment_svc.deploy(
             self.name, venv_root, venv_name, pkg)
+
+    # Configuration files
+
+    def add_config_file(self, name, template, path, **vars):
+        self.config_files[name] = dict(template=template,
+                                       path=path, **vars)
+        self.save_config()
+
+    def change_config_file(self, name, key, value):
+        self.config_files[name][key] = value
+        self.save_config()
+
+    def remove_config_file(self, name):
+        del self.config_files[name]
+        self.save_config()
+
+    def _config_generator(self, name):
+        variables = dict(self.config_files[name])
+        template = variables.pop('template')
+        path = variables.pop('path')
+        return ConfigGenerator(name, template, path, variables)
+
+    def generate_config_file(self, name, global_variables):
+        config = self._config_generator(name)
+        return config.generate(global_variables)
+
+    def install_config_file(self, name, global_variables):
+        config = self._config_generator(name)
+        return config.install(global_variables)
