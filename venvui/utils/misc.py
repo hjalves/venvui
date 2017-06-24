@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import datetime
 import json
 import random
 import string
@@ -26,3 +27,21 @@ async def save_part_to_file(f, part_reader):
 def json_error(error, status):
     message = {'error': error, 'status': status}
     return web.json_response(message, status=status)
+
+
+def json_dumps(obj):
+    def default(obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        elif isinstance(obj, datetime.date):
+            return obj.isoformat()
+        raise TypeError('%r is not JSON serializable' % obj)
+    return json.dumps(obj, default=default)
+
+
+def jsonify(*a, status=200, reason=None, headers=None, content_type=None,
+            dumps=json_dumps, **kw):
+    content_type = content_type or 'application/json'
+    text = dumps(dict(*a, **kw))
+    return web.Response(text=text, status=status, reason=reason,
+                        headers=headers, content_type=content_type)

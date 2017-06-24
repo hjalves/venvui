@@ -84,5 +84,6 @@ class Project:
         pkg = self.svc.package_svc.get_package(pkg_name)
         venv_time = datetime.datetime.utcnow().strftime('%Y%m%d-%H%M%S')
         venv_name = '{}-{}-{}'.format(pkg['name'], pkg['version'], venv_time)
-        venv_path = self.path / self.venv_pathname / venv_name
-        return self.svc.deployment_svc.deploy(self.name, venv_path, pkg)
+        venv_root = self.path / self.venv_pathname
+        return self.svc.deployment_svc.deploy(
+            self.name, venv_root, venv_name, pkg)

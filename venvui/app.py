@@ -5,6 +5,7 @@ import logging
 import logging.config
 from pathlib import Path
 import warnings
+from time import time
 
 from aiohttp import web
 import yaml
@@ -34,7 +35,7 @@ def main():
                                  deployment_svc=deploy_svc,
                                  package_svc=package_svc)
 
-    app = web.Application(middlewares=[error_middleware])
+    app = web.Application(middlewares=[timer_middleware, error_middleware])
     app['config'] = config
     app['projects'] = project_svc
     app['packages'] = package_svc
@@ -56,6 +57,17 @@ def setup_routes(app):
     app.router.add_get('/deployments', views.list_deployments)
     app.router.add_get('/deployments/{key}', views.get_deployment)
     app.router.add_get('/deployments/{key}/log', views.get_deployment_log)
+
+
+async def timer_middleware(app, handler):
+    async def middleware_handler(request):
+        now = time()
+        response = await handler(request)
+        elapsed = (time() - now) * 1000
+        logger.debug("Elapsed: %.3f ms", elapsed)
+        response.headers['X-Elapsed'] = "%.3f" % elapsed
+        return response
+    return middleware_handler
 
 
 async def error_middleware(app, handler):

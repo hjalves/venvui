@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import time
 
 from venvui.utils.misc import keygen
@@ -13,12 +14,18 @@ logger = logging.getLogger(__name__)
 
 class Deployment:
 
-    def __init__(self, svc, key, project_key, venv_path, pkg):
+    current_venv_name = 'current'
+
+    def __init__(self, svc, key, project_key, venv_root, venv_name, pkg):
         self.svc = svc
         self.key = key
         self.project_key = project_key
-        self.venv_path = venv_path
+        self.venv_root = venv_root
+        self.venv_name = venv_name
         self.pkg = pkg
+
+        self.venv_path = venv_root / venv_name
+        self.symlink_path = venv_root / self.current_venv_name
         self.state = 'pending'
         self.stream_log = StreamLog()
         self.sub = SubProcessController(self.stream_log.writer('out'),
@@ -41,8 +48,6 @@ class Deployment:
         await self._execute(str(pip_path), 'install', self.pkg['path'])
         await self._execute('ping', '-c10', '127.0.0.1')
         self.stream_log.close()
-        self.state = 'done'
-        logger.info("Deployment '%s' is: %s", self.key, self.state)
 
     def start(self):
         future = asyncio.ensure_future(self._run())
@@ -53,6 +58,13 @@ class Deployment:
 
     def _done(self, future):
         future.result()
+        try:
+            self.symlink_path.unlink()
+        except FileNotFoundError:
+            pass
+        self.symlink_path.symlink_to(self.venv_name)
+        self.state = 'done'
+        logger.info("Deployment '%s' is: %s", self.key, self.state)
         #self.stream_log.unsubscribe_all()
 
     def _done_debuglog(self, future):
@@ -75,7 +87,7 @@ class Deployment:
         return {
             'key': self.key,
             'project_key': self.project_key,
-            'venv_name': str(self.venv_path.name),
+            'venv_name': self.venv_name,
             'pkg_name': self.pkg['pkg_name'],
             'state': self.state
         }
@@ -86,10 +98,10 @@ class DeploymentService:
     def __init__(self):
         self.deployments = {}
 
-    def deploy(self, project_key, venv_path, package):
+    def deploy(self, project_key, venv_root, venv_name, package):
         key = keygen()
-        self.deployments[key] = Deployment(self, key, project_key, venv_path,
-                                            package)
+        self.deployments[key] = Deployment(self, key, project_key, venv_root,
+                                           venv_name, package)
         self.deployments[key].start()
         return self.deployments[key]
 

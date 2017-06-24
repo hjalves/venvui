@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
+
 from aiohttp import web
 from aiohttp.web_response import StreamResponse
+
+from venvui.utils.misc import jsonify
 
 
 async def list_projects(request):
@@ -12,10 +15,10 @@ async def list_projects(request):
         'name': p.name,
         'pathname': p.pathname,
         'fullpath': p.fullpath,
-        'created_at': p.created_at.isoformat(timespec='seconds')
+        'created_at': p.created_at
     } for p in projects}
 
-    return web.json_response(result)
+    return jsonify(result)
 
 
 async def create_project(request):
@@ -25,11 +28,11 @@ async def create_project(request):
 
     project = project_svc.create_project(data['name'])
 
-    return web.json_response({
+    return jsonify({
         'name': project.name,
         'pathname': project.pathname,
         'fullpath': project.fullpath,
-        'created_at': project.created_at.isoformat(sep=' ', timespec='seconds')
+        'created_at': project.created_at
     })
 
 
@@ -38,13 +41,13 @@ async def get_project(request):
     name = request.match_info['name']
     project = project_svc.get_project(name)
     if not project:
-        return web.HTTPNotFound(reason="Project not found")
+        raise web.HTTPNotFound(reason="Project not found")
 
-    return web.json_response({
+    return jsonify({
         'name': project.name,
         'pathname': project.pathname,
         'fullpath': project.fullpath,
-        'created_at': project.created_at.isoformat(sep=' ', timespec='seconds')
+        'created_at': project.created_at
     })
 
 
@@ -52,7 +55,7 @@ async def list_packages(request):
     package_svc = request.app['packages']
 
     packages = package_svc.list_packages()
-    return web.json_response(packages)
+    return jsonify(packages)
 
 
 async def upload_package(request):
@@ -64,7 +67,7 @@ async def upload_package(request):
         if part.filename:
             pkg = await package_svc.save_package_from_part(part)
             saved.append(pkg)
-    return web.json_response({'saved': saved})
+    return jsonify(saved=saved)
 
 
 async def start_deployment(request):
@@ -77,16 +80,14 @@ async def start_deployment(request):
 
     project = project_svc.get_project(name)
     deployment = project.deploy(pkg_name)
-    return web.json_response(deployment.to_dict())
+    return jsonify(deployment.to_dict())
 
 
 async def list_deployments(request):
     deployment_svc = request.app['deployments']
 
-    return web.json_response(
-        {'deployments': [v.to_dict() for v
-                         in deployment_svc.list_deployments()]}
-    )
+    deployments = [v.to_dict() for v in deployment_svc.list_deployments()]
+    return jsonify(deployments=deployments)
 
 
 async def list_project_deployments(request):
@@ -94,9 +95,9 @@ async def list_project_deployments(request):
     project_name = request.match_info['name']
 
     deployment_list = deployment_svc.list_deployments(project_name)
-    return web.json_response({
-        'deployments': [v.to_dict() for v in deployment_list]
-    })
+    deployments = [v.to_dict() for v in deployment_list]
+    return jsonify(deployments=deployments)
+
 
 async def get_deployment(request):
     deployment_svc = request.app['deployments']
@@ -104,7 +105,7 @@ async def get_deployment(request):
 
     deployment = deployment_svc.get_deployment(key)
 
-    return web.json_response(deployment.to_dict())
+    return jsonify(deployment.to_dict())
 
 
 async def get_deployment_log(request):
