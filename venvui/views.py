@@ -4,7 +4,7 @@
 from aiohttp import web
 from aiohttp.web_response import StreamResponse
 
-from venvui.utils.misc import jsonify
+from venvui.utils.misc import jsonify, jsonbody
 
 
 async def list_projects(request):
@@ -23,8 +23,7 @@ async def list_projects(request):
 
 async def create_project(request):
     project_svc = request.app['projects']
-    assert request.content_type == 'application/json'
-    data = await request.json()
+    data = await jsonbody(request)
 
     project = project_svc.create_project(data['name'])
 
@@ -74,8 +73,7 @@ async def start_deployment(request):
     project_svc = request.app['projects']
     name = request.match_info['name']
 
-    assert request.content_type == 'application/json'
-    data = await request.json()
+    data = await jsonbody(request)
     pkg_name = data['pkg_name']
 
     project = project_svc.get_project(name)
@@ -126,26 +124,80 @@ async def get_deployment_log(request):
 
 
 async def get_config_files(request):
-    pass
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+    return jsonify(configs=project.list_config_files())
 
 
 async def get_config_file(request):
-    pass
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    config_name = request.match_info['config']
+    generated = 'generate' in request.query
+
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+    config = project.get_config_file(config_name, generated)
+    if not config:
+        raise web.HTTPNotFound(reason="Config file not found")
+    return jsonify(config)
 
 
 async def add_config_file(request):
-    pass
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+
+    data = await jsonbody(request)
+    project.add_config_file(data['name'], data['template'], data['path'],
+                            data['vars'])
+    config = project.get_config_file(data['name'])
+    return jsonify(config)
 
 
 async def change_config_file(request):
-    pass
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    config_name = request.match_info['config']
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+    if not project.has_config_file(config_name):
+        raise web.HTTPNotFound(reason="Config file not found")
+    data = await jsonbody(request)
+    project.change_config_file(config_name, data)
+    if 'name' in data:
+        config_name = data['name']
+    config = project.get_config_file(config_name)
+    return jsonify(config)
 
 
 async def remove_config_file(request):
-    pass
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    config_name = request.match_info['config']
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+    if not project.has_config_file(config_name):
+        raise web.HTTPNotFound(reason="Config file not found")
+    project.remove_config_file(config_name)
+    return web.HTTPNoContent()
 
 
 async def install_config_file(request):
-    pass
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    config_name = request.match_info['config']
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
 
-
+    config = project.install_config_file(config_name)
+    return jsonify(config)

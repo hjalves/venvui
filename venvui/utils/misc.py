@@ -45,3 +45,9 @@ def jsonify(*a, status=200, reason=None, headers=None, content_type=None,
     text = dumps(dict(*a, **kw))
     return web.Response(text=text, status=status, reason=reason,
                         headers=headers, content_type=content_type)
+
+
+async def jsonbody(request):
+    assert request.content_type == 'application/json'
+    data = await request.json()
+    return data

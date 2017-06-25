@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 
 import yaml
+from os import getenv
 
 from venvui.utils.confgen import ConfigGenerator
 
@@ -36,6 +37,11 @@ class ProjectService:
             return Project.load_from_path(self, path)
         except FileNotFoundError:
             return None
+
+    def global_variables(self):
+        return {
+            'HOME': getenv('HOME')
+        }
 
 
 class Project:
@@ -92,15 +98,50 @@ class Project:
         return self.svc.deployment_svc.deploy(
             self.name, venv_root, venv_name, pkg)
 
+    def variables(self, include_global=True):
+        vars = {}
+        if include_global:
+            vars = self.svc.global_variables()
+        vars['PROJECT_NAME'] = self.name
+        vars['PROJECT_PATH'] = self.fullpath
+        vars['PROJECT_ID'] = self.pathname
+        return vars
+
     # Configuration files
 
-    def add_config_file(self, name, template, path, **vars):
+    def has_config_file(self, name):
+        return name in self.config_files
+
+    def get_config_file(self, name, generated=False):
+        if name not in self.config_files:
+            return None
+        config_file = dict(name=name, **self.config_files[name])
+
+        config_gen = self._config_generator(name)
+        global_variables = self.variables()
+        path = config_gen.resolved_path(global_variables)
+        config_file['full_path'] = str(path.absolute())
+        if generated:
+            config_file['generated'] = config_gen.generate(global_variables)
+        return config_file
+
+    def list_config_files(self):
+        return [self.get_config_file(name) for name in self.config_files]
+
+    def add_config_file(self, name, template, path, vars):
         self.config_files[name] = dict(template=template,
-                                       path=path, **vars)
+                                       path=path, vars=vars)
         self.save_config()
 
-    def change_config_file(self, name, key, value):
-        self.config_files[name][key] = value
+    def change_config_file(self, name, partial):
+        if 'name' in partial:
+            new_name = partial.pop('name')
+            self.config_files[new_name] = self.config_files.pop(name)
+            name = new_name
+
+        for key, value in partial.items():
+            if key in ('template', 'vars', 'path'):
+                self.config_files[name][key] = value
         self.save_config()
 
     def remove_config_file(self, name):
@@ -108,15 +149,19 @@ class Project:
         self.save_config()
 
     def _config_generator(self, name):
-        variables = dict(self.config_files[name])
-        template = variables.pop('template')
-        path = variables.pop('path')
-        return ConfigGenerator(name, template, path, variables)
+        config = self.config_files[name]
+        return ConfigGenerator(name, config['template'], config['path'],
+                               config['vars'])
 
     def generate_config_file(self, name, global_variables):
         config = self._config_generator(name)
         return config.generate(global_variables)
 
-    def install_config_file(self, name, global_variables):
+    def install_config_file(self, name):
+        global_variables = self.variables()
         config = self._config_generator(name)
-        return config.install(global_variables)
+        path, config = config.install(global_variables, self.path)
+        config_file = dict(name=name, **self.config_files[name])
+        config_file['full_path'] = str(path.absolute())
+        config_file['generated'] = config
+        return config_file

@@ -78,7 +78,8 @@ async def timer_middleware(app, handler):
         response = await handler(request)
         elapsed = (time() - now) * 1000
         logger.debug("Elapsed: %.3f ms", elapsed)
-        response.headers['X-Elapsed'] = "%.3f" % elapsed
+        if response:
+            response.headers['X-Elapsed'] = "%.3f" % elapsed
         return response
     return middleware_handler
 
@@ -87,7 +88,7 @@ async def error_middleware(app, handler):
     async def middleware_handler(request):
         try:
             response = await handler(request)
-            if response.status >= 400:
+            if response and response.status >= 400:
                 return json_error(response.reason, response.status)
             return response
         except web.HTTPException as ex:
