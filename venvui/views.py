@@ -201,3 +201,66 @@ async def install_config_file(request):
 
     config = project.install_config_file(config_name)
     return jsonify(config)
+
+
+async def get_services(request):
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+
+    services = await project.get_systemd_services()
+    return jsonify(services=services)
+
+
+async def get_service(request):
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    service = request.match_info['service']
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+
+    service = await project.get_systemd_service(service)
+    return jsonify(service)
+
+
+async def service_execute_command(request):
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    service = request.match_info['service']
+    command = request.match_info['command']
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+    if command not in ('start', 'stop', 'restart', 'reload', 'enable',
+                       'disable'):
+        raise web.HTTPBadRequest(reason="Unknown command")
+    result = await project.execute_systemd_service_command(service, command)
+    return jsonify(result=result)
+
+
+
+async def add_service(request):
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    project = project_svc.get_project(name)
+    project_svc.add_service(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+    data = await jsonbody(request)
+    await project.add_systemd_service(data['service'])
+    return web.HTTPNoContent()
+
+
+async def delete_service(request):
+    project_svc = request.app['projects']
+    name = request.match_info['name']
+    service = request.match_info['service']
+    project = project_svc.get_project(name)
+    if not project:
+        raise web.HTTPNotFound(reason="Project not found")
+
+    await project.remove_systemd_service(service)
+    return web.HTTPNoContent()

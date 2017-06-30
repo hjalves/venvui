@@ -14,12 +14,14 @@ logger = logging.getLogger(__name__)
 
 class ProjectService:
 
-    def __init__(self, project_root, deployment_svc, package_svc):
+    def __init__(self, project_root, deployment_svc, package_svc,
+                 systemd_svc):
         self.project_root = Path(project_root)
         assert self.project_root.exists()
         assert self.project_root.is_dir()
         self.deployment_svc = deployment_svc
         self.package_svc = package_svc
+        self.systemd_svc = systemd_svc
 
     def create_project(self, name):
         path = self.project_root / name
@@ -48,12 +50,14 @@ class Project:
     config_filename = 'project.yaml'
     venv_pathname = 'venv'
 
-    def __init__(self, svc, path, name, created_at=None, config_files=None):
+    def __init__(self, svc, path, name, created_at=None,
+                 config_files=None, systemd_services=None):
         self.svc = svc
         self.path = Path(path)
         self.name = name
         self.created_at = created_at or datetime.datetime.utcnow()
         self.config_files = config_files or {}
+        self.systemd_services = systemd_services or []
 
     @classmethod
     def load_from_path(cls, svc, path):
@@ -67,7 +71,8 @@ class Project:
     def config(self):
         return {'name': self.name,
                 'created_at': self.created_at,
-                'config_files': self.config_files}
+                'config_files': self.config_files,
+                'systemd_services': self.systemd_services}
 
     @property
     def pathname(self):
@@ -107,7 +112,31 @@ class Project:
         vars['PROJECT_ID'] = self.pathname
         return vars
 
-    # Configuration files
+    # Services
+
+    def add_systemd_service(self, service):
+        self.systemd_services.append(service)
+
+    def remove_systemd_service(self, service):
+        self.systemd_services.remove(service)
+
+    async def get_systemd_services(self):
+        services = []
+        for service in self.systemd_services:
+            services.append(await self.get_systemd_service(service))
+        return services
+
+    async def get_systemd_service(self, service):
+        status = await self.svc.systemd_svc.get_status(service)
+        status['name'] = service
+        return status
+
+    async def execute_systemd_service_command(self, service, command):
+        # TODO: test if service in service list
+        result = await self.svc.systemd_svc.execute(service, command)
+        return result
+
+    # Config file
 
     def has_config_file(self, name):
         return name in self.config_files

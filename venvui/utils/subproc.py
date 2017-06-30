@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import asyncio
-import subprocess
+from asyncio import subprocess
 
 
 class SubProcessController:

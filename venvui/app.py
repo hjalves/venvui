@@ -14,6 +14,7 @@ from venvui import views
 from venvui.services import ProjectService
 from venvui.services import PackageService
 from venvui.services import DeploymentService
+from venvui.services import SystemdManager
 from venvui.utils.misc import json_error
 
 logger = logging.getLogger(__name__)
@@ -31,15 +32,18 @@ def main():
     package_svc = PackageService(package_root=config['package_path'],
                                  temp_path=config['temp_path'])
     deploy_svc = DeploymentService()
+    systemd_svc = SystemdManager()
     project_svc = ProjectService(project_root=config['project_path'],
                                  deployment_svc=deploy_svc,
-                                 package_svc=package_svc)
+                                 package_svc=package_svc,
+                                 systemd_svc=systemd_svc)
 
     app = web.Application(middlewares=[timer_middleware, error_middleware])
     app['config'] = config
     app['projects'] = project_svc
     app['packages'] = package_svc
     app['deployments'] = deploy_svc
+    app['systemd'] = systemd_svc
 
     setup_routes(app)
     web.run_app(app, host=config['http_host'], port=config['http_port'])
@@ -63,6 +67,15 @@ def setup_routes(app):
                           views.remove_config_file)
     app.router.add_post('/projects/{name}/configs/{config}/install',
                         views.install_config_file)
+
+    app.router.add_get('/projects/{name}/services', views.get_services)
+    app.router.add_post('/projects/{name}/services', views.add_service)
+    app.router.add_get('/projects/{name}/services/{service}',
+                       views.get_service)
+    app.router.add_delete('/projects/{name}/services/{service}',
+                          views.delete_service)
+    app.router.add_post('/projects/{name}/services/{service}/{command}',
+                        views.service_execute_command)
 
     app.router.add_get('/packages', views.list_packages)
     app.router.add_post('/packages', views.upload_package)
@@ -95,6 +108,9 @@ async def error_middleware(app, handler):
             if ex.status >= 400:
                 return json_error(ex.reason, ex.status)
             raise
+        except Exception as e:
+            logger.exception("Exception while handling request:")
+            return json_error('%s: %s' % (e.__class__.__name__, e), 500)
     return middleware_handler
 
 
