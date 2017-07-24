@@ -7,6 +7,7 @@ from pathlib import Path
 import warnings
 from time import time
 
+import aiohttp_cors
 from aiohttp import web
 import yaml
 
@@ -45,44 +46,63 @@ def main():
     app['deployments'] = deploy_svc
     app['systemd'] = systemd_svc
 
-    setup_routes(app)
+    cors = aiohttp_cors.setup(app, defaults={
+        "*": aiohttp_cors.ResourceOptions(allow_credentials=True,
+                                          allow_headers='*',
+                                          allow_methods='*'),
+    })
+
+    setup_routes(app, cors)
     web.run_app(app, host=config['http_host'], port=config['http_port'])
 
 
-def setup_routes(app):
-    app.router.add_get('/projects', views.list_projects)
-    app.router.add_post('/projects', views.create_project)
-    app.router.add_get('/projects/{name}', views.get_project)
-    app.router.add_get('/projects/{name}/deployments',
-                       views.list_project_deployments)
-    app.router.add_post('/projects/{name}/deployments', views.start_deployment)
+def setup_routes(app, cors):
 
-    app.router.add_get('/projects/{name}/configs', views.get_config_files)
-    app.router.add_post('/projects/{name}/configs', views.add_config_file)
-    app.router.add_get('/projects/{name}/configs/{config}',
-                       views.get_config_file)
-    app.router.add_put('/projects/{name}/configs/{config}',
-                       views.change_config_file)
-    app.router.add_delete('/projects/{name}/configs/{config}',
-                          views.remove_config_file)
-    app.router.add_post('/projects/{name}/configs/{config}/install',
-                        views.install_config_file)
+    def route(path, get=None, post=None, put=None, delete=None):
+        if get:
+            cors.add(app.router.add_get(path, get))
+        if post:
+            cors.add(app.router.add_post(path, post))
+        if put:
+            cors.add(app.router.add_put(path, put))
+        if delete:
+            cors.add(app.router.add_delete(path, delete))
 
-    app.router.add_get('/projects/{name}/services', views.get_services)
-    app.router.add_post('/projects/{name}/services', views.add_service)
-    app.router.add_get('/projects/{name}/services/{service}',
-                       views.get_service)
-    app.router.add_delete('/projects/{name}/services/{service}',
-                          views.delete_service)
-    app.router.add_post('/projects/{name}/services/{service}/{command}',
-                        views.service_execute_command)
-
-    app.router.add_get('/packages', views.list_packages)
-    app.router.add_post('/packages', views.upload_package)
-
-    app.router.add_get('/deployments', views.list_deployments)
-    app.router.add_get('/deployments/{key}', views.get_deployment)
-    app.router.add_get('/deployments/{key}/log', views.get_deployment_log)
+    route('/projects',
+          get=views.list_projects,
+          post=views.create_project)
+    route('/projects/{key}',
+          get=views.get_project)
+    route('/projects/{key}/deployments',
+          get=views.list_project_deployments,
+          post=views.start_deployment)
+    route('/projects/{key}/configs',
+          get=views.get_config_files,
+          post=views.add_config_file)
+    route('/projects/{key}/configs/{config}',
+          get=views.get_config_file,
+          put=views.change_config_file,
+          delete=views.remove_config_file)
+    route('/projects/{key}/configs/{config}/install',
+          post=views.install_config_file)
+    route('/projects/{key}/services',
+          get=views.get_services,
+          post=views.add_service,
+          delete=views.delete_service)
+    route('/projects/{key}/services/{service}',
+          get=views.get_service,
+          delete=views.delete_service)
+    route('/projects/{key}/services/{service}/{command}',
+          get=views.service_execute_command)
+    route('/packages',
+          get=views.list_packages,
+          post=views.upload_package)
+    route('/deployments',
+          get=views.list_deployments)
+    route('/deployments/{key}',
+          get=views.get_deployment)
+    route('/deployments/{key}/log',
+          get=views.get_deployment_log)
 
 
 async def timer_middleware(app, handler):

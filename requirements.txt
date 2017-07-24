@@ -1,4 +1,5 @@
 aiohttp
+aiohttp-cors
 colorlog
 PyYAML
 pkginfo

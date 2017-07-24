@@ -23,9 +23,9 @@ class ProjectService:
         self.package_svc = package_svc
         self.systemd_svc = systemd_svc
 
-    def create_project(self, name):
-        path = self.project_root / name
-        project = Project(svc=self, path=path, name=name)
+    def create_project(self, key, name):
+        path = self.project_root / key
+        project = Project(svc=self, path=path, key=key, name=name)
         project.create()
         return project
 
@@ -50,10 +50,11 @@ class Project:
     config_filename = 'project.yaml'
     venv_pathname = 'venv'
 
-    def __init__(self, svc, path, name, created_at=None,
+    def __init__(self, svc, path, key, name, created_at=None,
                  config_files=None, systemd_services=None):
         self.svc = svc
         self.path = Path(path)
+        self.key = key
         self.name = name
         self.created_at = created_at or datetime.datetime.utcnow()
         self.config_files = config_files or {}
@@ -61,10 +62,12 @@ class Project:
 
     @classmethod
     def load_from_path(cls, svc, path):
-        config_file = Path(path) / cls.config_filename
+        project_path = Path(path)
+        config_file = project_path / cls.config_filename
         with open(config_file) as f:
             config = yaml.safe_load(f)
             config['path'] = path
+            config['key'] = str(path.name)
             return cls(svc, **config)
 
     @property
@@ -109,7 +112,7 @@ class Project:
             vars = self.svc.global_variables()
         vars['PROJECT_NAME'] = self.name
         vars['PROJECT_PATH'] = self.fullpath
-        vars['PROJECT_ID'] = self.pathname
+        vars['PROJECT_KEY'] = self.key
         return vars
 
     # Services

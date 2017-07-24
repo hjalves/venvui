@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-
 from aiohttp import web
 from aiohttp.web_response import StreamResponse
 
@@ -11,25 +10,22 @@ async def list_projects(request):
     project_svc = request.app['projects']
 
     projects = project_svc.find_projects()
-    result = {p.pathname: {
+    return jsonify(projects=[{
+        'key': p.key,
         'name': p.name,
-        'pathname': p.pathname,
         'fullpath': p.fullpath,
-        'created_at': p.created_at
-    } for p in projects}
-
-    return jsonify(result)
+        'created_at': p.created_at} for p in projects])
 
 
 async def create_project(request):
     project_svc = request.app['projects']
     data = await jsonbody(request)
 
-    project = project_svc.create_project(data['name'])
+    project = project_svc.create_project(data['key'], data['name'])
 
     return jsonify({
+        'key': project.key,
         'name': project.name,
-        'pathname': project.pathname,
         'fullpath': project.fullpath,
         'created_at': project.created_at
     })
@@ -37,14 +33,14 @@ async def create_project(request):
 
 async def get_project(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     project = project_svc.get_project(name)
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
 
     return jsonify({
+        'key': project.key,
         'name': project.name,
-        'pathname': project.pathname,
         'fullpath': project.fullpath,
         'created_at': project.created_at
     })
@@ -71,7 +67,7 @@ async def upload_package(request):
 
 async def start_deployment(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
 
     data = await jsonbody(request)
     pkg_name = data['pkg_name']
@@ -90,7 +86,7 @@ async def list_deployments(request):
 
 async def list_project_deployments(request):
     deployment_svc = request.app['deployments']
-    project_name = request.match_info['name']
+    project_name = request.match_info['key']
 
     deployment_list = deployment_svc.list_deployments(project_name)
     deployments = [v.to_dict() for v in deployment_list]
@@ -125,7 +121,7 @@ async def get_deployment_log(request):
 
 async def get_config_files(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     project = project_svc.get_project(name)
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
@@ -134,7 +130,7 @@ async def get_config_files(request):
 
 async def get_config_file(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     config_name = request.match_info['config']
     generated = 'generate' in request.query
 
@@ -149,7 +145,7 @@ async def get_config_file(request):
 
 async def add_config_file(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     project = project_svc.get_project(name)
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
@@ -163,7 +159,7 @@ async def add_config_file(request):
 
 async def change_config_file(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     config_name = request.match_info['config']
     project = project_svc.get_project(name)
     if not project:
@@ -180,7 +176,7 @@ async def change_config_file(request):
 
 async def remove_config_file(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     config_name = request.match_info['config']
     project = project_svc.get_project(name)
     if not project:
@@ -193,7 +189,7 @@ async def remove_config_file(request):
 
 async def install_config_file(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     config_name = request.match_info['config']
     project = project_svc.get_project(name)
     if not project:
@@ -205,7 +201,7 @@ async def install_config_file(request):
 
 async def get_services(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     project = project_svc.get_project(name)
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
@@ -216,7 +212,7 @@ async def get_services(request):
 
 async def get_service(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     service = request.match_info['service']
     project = project_svc.get_project(name)
     if not project:
@@ -228,7 +224,7 @@ async def get_service(request):
 
 async def service_execute_command(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     service = request.match_info['service']
     command = request.match_info['command']
     project = project_svc.get_project(name)
@@ -244,7 +240,7 @@ async def service_execute_command(request):
 
 async def add_service(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     project = project_svc.get_project(name)
     project_svc.add_service(name)
     if not project:
@@ -256,7 +252,7 @@ async def add_service(request):
 
 async def delete_service(request):
     project_svc = request.app['projects']
-    name = request.match_info['name']
+    name = request.match_info['key']
     service = request.match_info['service']
     project = project_svc.get_project(name)
     if not project:
