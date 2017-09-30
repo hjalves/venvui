@@ -9,7 +9,7 @@ from time import time
 
 import aiohttp_cors
 from aiohttp import web
-import yaml
+import toml
 
 from venvui import views
 from venvui.services import ProjectService
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    config_path = Path('.') / 'config' / 'venvui.yaml'
+    config_path = Path('.') / 'config' / 'venvui.toml'
     config = load_config(config_path)
 
     logging.config.dictConfig(config['logging'])
@@ -32,7 +32,7 @@ def main():
 
     package_svc = PackageService(package_root=config['package_path'],
                                  temp_path=config['temp_path'])
-    deploy_svc = DeploymentService()
+    deploy_svc = DeploymentService(temp_path=config['temp_path'])
     systemd_svc = SystemdManager()
     project_svc = ProjectService(project_root=config['project_path'],
                                  deployment_svc=deploy_svc,
@@ -87,8 +87,7 @@ def setup_routes(app, cors):
           post=views.install_config_file)
     route('/projects/{key}/services',
           get=views.get_services,
-          post=views.add_service,
-          delete=views.delete_service)
+          post=views.add_service)
     route('/projects/{key}/services/{service}',
           get=views.get_service,
           delete=views.delete_service)
@@ -136,5 +135,5 @@ async def error_middleware(app, handler):
 
 def load_config(path):
     with open(path) as f:
-        config = yaml.safe_load(f)
+        config = toml.load(f)
     return config

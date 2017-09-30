@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -19,16 +20,16 @@ class PackageService:
             raise NotADirectoryError("%s must be a directory" % self.temp_path)
 
     @staticmethod
-    def metadata(path):
+    def package_info(path):
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError("File not found")
 
-        d = {'type': 'invalid',
+        d = {'type': 'unknown',
              'path': str(path),
              'size': path.stat().st_size,
-             'modified': path.stat().st_mtime,
-             'pkg_name': str(path.name)}
+             'modified': datetime.fromtimestamp(path.stat().st_mtime),
+             'filename': str(path.name)}
         pkg = None
 
         try:
@@ -42,18 +43,17 @@ class PackageService:
             d['error'] = str(e)
 
         if pkg:
-            for k in pkg:
-                d[k] = getattr(pkg, k, None)
+            d['metadata'] = {k: getattr(pkg, k, None) for k in pkg}
         return d
 
     def list_packages(self):
         if not self.package_root.exists() or not self.package_root.is_dir():
             raise NotADirectoryError("Path must be a directory")
-        return {path.name: self.metadata(path)
-                for path in self.package_root.iterdir()}
+        for path in self.package_root.iterdir():
+            yield self.package_info(path)
 
     def get_package(self, name):
-        return self.metadata(self.package_root / name)
+        return self.package_info(self.package_root / name)
 
     def save_package(self, from_path, filename):
         Path(from_path).rename(self.package_root / filename)

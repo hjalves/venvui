@@ -10,7 +10,7 @@ setup(
                 'environments.',
     url='https://github.com/hjalves/venvui',
     author='Humberto Alves',
-    author_email='amphiterus@gmail.com',
+    author_email='hjalves@live.com',
     license='MIT',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
@@ -25,7 +25,8 @@ setup(
     install_requires=[
         'aiohttp',
         'aiohttp-cors',
-        'PyYAML',
+        'colorlog',
+        'toml',
         'pkginfo'
     ],
     entry_points={

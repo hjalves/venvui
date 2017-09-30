@@ -4,7 +4,7 @@ import datetime
 import logging
 from pathlib import Path
 
-import yaml
+import toml
 from os import getenv
 
 from venvui.utils.confgen import ConfigGenerator
@@ -47,7 +47,7 @@ class ProjectService:
 
 
 class Project:
-    config_filename = 'project.yaml'
+    config_filename = 'project.toml'
     venv_pathname = 'venv'
 
     def __init__(self, svc, path, key, name, created_at=None,
@@ -65,23 +65,17 @@ class Project:
         project_path = Path(path)
         config_file = project_path / cls.config_filename
         with open(config_file) as f:
-            config = yaml.safe_load(f)
-            config['path'] = path
-            config['key'] = str(path.name)
-            return cls(svc, **config)
+            config = toml.load(f)
+        config['path'] = path
+        config['key'] = str(path.name)
+        return cls(svc, **config)
 
-    @property
     def config(self):
         return {'name': self.name,
                 'created_at': self.created_at,
                 'config_files': self.config_files,
                 'systemd_services': self.systemd_services}
 
-    @property
-    def pathname(self):
-        return str(self.path.name)
-
-    @property
     def fullpath(self):
         return str(self.path.absolute())
 
@@ -96,12 +90,15 @@ class Project:
     def save_config(self):
         config_file = self.path / self.config_filename
         with open(config_file, 'w') as f:
-            yaml.dump(self.config, f, default_flow_style=False)
+            toml.dump(self.config(), f)
 
-    def deploy(self, pkg_name):
-        pkg = self.svc.package_svc.get_package(pkg_name)
+    def deploy(self, pkg_filename):
+        pkg = self.svc.package_svc.get_package(pkg_filename)
+        metadata = pkg['metadata']
         venv_time = datetime.datetime.utcnow().strftime('%Y%m%d-%H%M%S')
-        venv_name = '{}-{}-{}'.format(pkg['name'], pkg['version'], venv_time)
+        #venv_name = '{}-{}-{}'.format(metadata['name'], metadata['version'],
+        #                              venv_time)
+        venv_name = venv_time
         venv_root = self.path / self.venv_pathname
         return self.svc.deployment_svc.deploy(
             self.name, venv_root, venv_name, pkg)
@@ -111,7 +108,7 @@ class Project:
         if include_global:
             vars = self.svc.global_variables()
         vars['PROJECT_NAME'] = self.name
-        vars['PROJECT_PATH'] = self.fullpath
+        vars['PROJECT_PATH'] = self.fullpath()
         vars['PROJECT_KEY'] = self.key
         return vars
 

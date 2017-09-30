@@ -50,7 +50,7 @@ async def list_packages(request):
     package_svc = request.app['packages']
 
     packages = package_svc.list_packages()
-    return jsonify(packages)
+    return jsonify(packages=list(packages))
 
 
 async def upload_package(request):
@@ -70,10 +70,10 @@ async def start_deployment(request):
     name = request.match_info['key']
 
     data = await jsonbody(request)
-    pkg_name = data['pkg_name']
+    filename = data['filename']
 
     project = project_svc.get_project(name)
-    deployment = project.deploy(pkg_name)
+    deployment = project.deploy(filename)
     return jsonify(deployment.to_dict())
 
 

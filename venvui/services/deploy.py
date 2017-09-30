@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import time
+from pathlib import Path
 
 from venvui.utils.misc import keygen
 from venvui.utils.streamlog import StreamLog
@@ -41,10 +42,12 @@ class Deployment:
     async def _run(self):
         self.state = 'running'
         logger.info("Deployment '%s' is: %s", self.key, self.state)
-        python_path = '/opt/python36/bin/python3'
+        python_path = '/usr/bin/python3.6'
+        #venv_command = ['/opt/python36/bin/python3', '-mvenv']
+        create_venv_command = ['/usr/bin/virtualenv', '-p/usr/bin/python3.6']
         pip_path = self.venv_path / 'bin' / 'pip'
         await self._execute('ping', '-c10', '127.0.0.1')
-        await self._execute(python_path, '-mvenv', str(self.venv_path))
+        await self._execute(*create_venv_command, str(self.venv_path))
         await self._execute(str(pip_path), 'install', self.pkg['path'])
         await self._execute('ping', '-c10', '127.0.0.1')
         self.stream_log.close()
@@ -55,6 +58,9 @@ class Deployment:
 
         debuglog = asyncio.ensure_future(self._debuglog())
         debuglog.add_done_callback(self._done_debuglog)
+
+        writelog = asyncio.ensure_future(self._logfile())
+        writelog.add_done_callback(lambda f: f.result())
 
     def _done(self, future):
         future.result()
@@ -75,6 +81,13 @@ class Deployment:
         async for (timestamp, channel, line) in self.stream_log:
             logger.debug('[%s] (%s): %s', self.key, channel, line)
 
+    async def _logfile(self):
+        filename = 'deployment-%s.log' % self.key
+        with open(self.svc.temp_path / filename, 'w') as f:
+            async for (tstamp, channel, line) in self.stream_log:
+                f.write('%s | %s | %s\n' % (tstamp.isoformat(), channel, line))
+
+
     async def _execute(self, *command):
         now = time.time()
         self.stream_log.put('$ ' + ' '.join(command), channel='shell')
@@ -88,18 +101,19 @@ class Deployment:
             'key': self.key,
             'project_key': self.project_key,
             'venv_name': self.venv_name,
-            'pkg_name': self.pkg['pkg_name'],
+            'package_filename': self.pkg['filename'],
             'state': self.state
         }
 
 
 class DeploymentService:
 
-    def __init__(self):
+    def __init__(self, temp_path):
         self.deployments = {}
+        self.temp_path = Path(temp_path)
 
     def deploy(self, project_key, venv_root, venv_name, package):
-        key = keygen()
+        key = '%s-%s' % (project_key, venv_name)
         self.deployments[key] = Deployment(self, key, project_key, venv_root,
                                            venv_name, package)
         self.deployments[key].start()

@@ -1,0 +1,50 @@
+# Config file for venvui
+
+http_host = "127.0.0.1"
+http_port = 8000
+project_path = "./projects"
+package_path = "./data/pkg"
+temp_path = "./data/tmp"
+venv_path = "./data/venv"
+
+[logging]
+disable_existing_loggers = false
+version = 1
+
+[logging.root]
+handlers = [ "console",]
+level = "DEBUG"
+
+[logging.formatters.colored]
+"()" = "colorlog.ColoredFormatter"
+datefmt = "%b %d %H:%M:%S"
+format = "%(asctime)s.%(msecs)03d %(bold)s%(log_color)s[%(levelname)4.4s]%(reset)s (%(threadName)s) %(name)s: %(message_log_color)s%(message)s"
+
+[logging.formatters.simple]
+format = "%(asctime)s.%(msecs)d - %(name)s - %(levelname)s - %(message)s"
+
+[logging.handlers.console]
+class = "logging.StreamHandler"
+formatter = "colored"
+level = "DEBUG"
+stream = "ext://sys.stdout"
+
+[logging.loggers.asyncio]
+level = "DEBUG"
+
+[logging.loggers.venvui]
+level = "DEBUG"
+
+[logging.formatters.colored.log_colors]
+CRITICAL = "red,bg_white"
+DEBUG = "cyan"
+ERROR = "red"
+INFO = "green"
+WARNING = "yellow"
+
+[logging.formatters.colored.secondary_log_colors.message]
+CRITICAL = "bold_red"
+DEBUG = "bold"
+ERROR = "bold_red"
+INFO = "bold"
+WARNING = "bold_yellow"
