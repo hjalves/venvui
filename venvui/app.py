@@ -59,14 +59,15 @@ def main():
 def setup_routes(app, cors):
 
     def route(path, get=None, post=None, put=None, delete=None):
+        resource = cors.add(app.router.add_resource(path))
         if get:
-            cors.add(app.router.add_get(path, get))
+            resource.add_route('GET', get)
         if post:
-            cors.add(app.router.add_post(path, post))
+            resource.add_route('POST', post)
         if put:
-            cors.add(app.router.add_put(path, put))
+            resource.add_route('PUT', put)
         if delete:
-            cors.add(app.router.add_delete(path, delete))
+            resource.add_route('DELETE', delete)
 
     route('/projects',
           get=views.list_projects,
@@ -96,6 +97,8 @@ def setup_routes(app, cors):
     route('/packages',
           get=views.list_packages,
           post=views.upload_package)
+    route('/packages/{filename}',
+          get=views.get_package)
     route('/deployments',
           get=views.list_deployments)
     route('/deployments/{key}',

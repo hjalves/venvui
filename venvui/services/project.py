@@ -101,7 +101,7 @@ class Project:
         venv_name = venv_time
         venv_root = self.path / self.venv_pathname
         return self.svc.deployment_svc.deploy(
-            self.name, venv_root, venv_name, pkg)
+            self.key, venv_root, venv_name, pkg)
 
     def variables(self, include_global=True):
         vars = {}

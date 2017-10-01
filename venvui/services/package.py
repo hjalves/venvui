@@ -53,7 +53,10 @@ class PackageService:
             yield self.package_info(path)
 
     def get_package(self, name):
-        return self.package_info(self.package_root / name)
+        try:
+            return self.package_info(self.package_root / name)
+        except FileNotFoundError:
+            return None
 
     def save_package(self, from_path, filename):
         Path(from_path).rename(self.package_root / filename)
