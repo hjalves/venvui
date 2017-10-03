@@ -6,6 +6,7 @@ import random
 import string
 
 from aiohttp import web
+from aiohttp.web_response import StreamResponse
 
 
 def keygen(n=8):
@@ -45,6 +46,19 @@ def jsonify(*a, status=200, reason=None, headers=None, content_type=None,
     text = dumps(dict(*a, **kw))
     return web.Response(text=text, status=status, reason=reason,
                         headers=headers, content_type=content_type)
+
+
+async def ndjsonify(async_iterator, request):
+    response = StreamResponse(status=200, reason='OK')
+    response.headers['Content-Type'] = 'application/x-ndjson'
+    await response.prepare(request)
+
+    async for element in async_iterator:
+        text = json_dumps(element) + '\n'
+        response.write(text.encode('utf-8'))
+
+    return response
+
 
 
 async def jsonbody(request):

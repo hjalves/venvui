@@ -2,7 +2,6 @@
 
 import logging
 from asyncio import Event
-from functools import partial
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -13,22 +12,17 @@ class StreamLog:
     def __init__(self):
         self.stream = []
         self.written = Event()
-        self.subscribers = set()
         self.open = True
 
     def __aiter__(self):
         return self.retrieve()
 
-    def writer(self, channel=None):
-        return partial(self.put, channel=channel)
-
-    def put(self, line, channel=None):
+    def put(self, event, **data):
         # logger.debug('[%s]: %s', channel, line.replace('\n', ''))
         if not self.open:
             raise EOFError("StreamLog is closed")
         timestamp = datetime.utcnow()
-        line = str(line).replace('\n', '')
-        self.stream.append((timestamp, channel, line))
+        self.stream.append(dict(event=event, time=timestamp, **data))
         self.written.set()
         self.written.clear()
 

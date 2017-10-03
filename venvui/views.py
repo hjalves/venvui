@@ -3,7 +3,7 @@
 from aiohttp import web
 from aiohttp.web_response import StreamResponse
 
-from venvui.utils.misc import jsonify, jsonbody
+from venvui.utils.misc import jsonify, jsonbody, ndjsonify
 
 
 async def list_projects(request):
@@ -116,15 +116,7 @@ async def get_deployment_log(request):
     key = request.match_info['key']
 
     deployment = deployment_svc.get_deployment(key)
-
-    response = StreamResponse(status=200, reason='OK')
-    response.headers['Content-Type'] = 'text/plain; charset=utf-8'
-    await response.prepare(request)
-
-    async for timestamp, channel, line in deployment.log():
-        text = '%s|%s|%s\n' % (timestamp.isoformat(), channel, line)
-        response.write(text.encode('utf-8'))
-
+    response = await ndjsonify(deployment.log(), request)
     return response
 
 

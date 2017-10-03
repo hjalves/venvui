@@ -49,6 +49,7 @@ class ProjectService:
 class Project:
     config_filename = 'project.toml'
     venv_pathname = 'venv'
+    current_venv_name = 'current'
 
     def __init__(self, svc, path, key, name, created_at=None,
                  config_files=None, systemd_services=None):
@@ -59,6 +60,8 @@ class Project:
         self.created_at = created_at or datetime.datetime.utcnow()
         self.config_files = config_files or {}
         self.systemd_services = systemd_services or []
+
+        self.venv_path = self.path / self.venv_pathname
 
     @classmethod
     def load_from_path(cls, svc, path):
@@ -83,8 +86,7 @@ class Project:
         logger.info("Creating project in: '%s'", self.path)
         self.path.mkdir()
         # make sub-directories
-        venv_path = self.path / self.venv_pathname
-        venv_path.mkdir()
+        self.venv_path.mkdir()
         self.save_config()
 
     def save_config(self):
@@ -94,14 +96,28 @@ class Project:
 
     def deploy(self, pkg_filename):
         pkg = self.svc.package_svc.get_package(pkg_filename)
-        metadata = pkg['metadata']
-        venv_time = datetime.datetime.utcnow().strftime('%Y%m%d-%H%M%S')
-        #venv_name = '{}-{}-{}'.format(metadata['name'], metadata['version'],
-        #                              venv_time)
-        venv_name = venv_time
-        venv_root = self.path / self.venv_pathname
+        venv_name = datetime.datetime.utcnow().strftime('%Y%m%d-%H%M%S')
+
+        def deployment_done(deployment):
+            logger.warning("Deployment '%s': %s", deployment.key,
+                           deployment.state)
+            if deployment.state == 'failed':
+                logger.error("Deployment failed, so not symlinking")
+                return
+            self.symlink_venv(deployment.venv_name)
+
         return self.svc.deployment_svc.deploy(
-            self.key, venv_root, venv_name, pkg)
+            self.key, self.venv_path, venv_name, pkg, deployment_done)
+
+    def symlink_venv(self, target_venv_name):
+        symlink_path = self.venv_path / self.current_venv_name
+        logger.info("Will symlink: %s -> %s", self.current_venv_name,
+                    target_venv_name)
+        try:
+            symlink_path.unlink()
+        except FileNotFoundError:
+            pass
+        symlink_path.symlink_to(target_venv_name)
 
     def variables(self, include_global=True):
         vars = {}

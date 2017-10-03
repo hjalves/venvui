@@ -32,14 +32,16 @@ def main():
 
     package_svc = PackageService(package_root=config['package_path'],
                                  temp_path=config['temp_path'])
-    deploy_svc = DeploymentService(temp_path=config['temp_path'])
+    deploy_svc = DeploymentService(temp_path=config['temp_path'],
+                                   logs_path=config['logs_path'])
     systemd_svc = SystemdManager()
     project_svc = ProjectService(project_root=config['project_path'],
                                  deployment_svc=deploy_svc,
                                  package_svc=package_svc,
                                  systemd_svc=systemd_svc)
 
-    app = web.Application(middlewares=[timer_middleware, error_middleware])
+    app = web.Application(middlewares=[timer_middleware, error_middleware],
+                          debug=config['debug_mode'])
     app['config'] = config
     app['projects'] = project_svc
     app['packages'] = package_svc
@@ -129,6 +131,8 @@ async def error_middleware(app, handler):
         except web.HTTPException as ex:
             if ex.status >= 400:
                 return json_error(ex.reason, ex.status)
+            raise
+        except asyncio.CancelledError:
             raise
         except Exception as e:
             logger.exception("Exception while handling request:")

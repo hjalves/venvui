@@ -16,16 +16,20 @@ class SubProcessController:
     def _stream_consumed(self, future):
         future.result()
 
-    async def start(self, *args, **kwargs):
+    async def start(self, command, shell=False, **kwargs):
         pipe = subprocess.PIPE
-        proc = await asyncio.create_subprocess_exec(
-            *args, stdin=None, stdout=pipe, stderr=pipe, **kwargs)
+        if shell:
+            proc = await asyncio.create_subprocess_shell(
+                command, stdin=None, stdout=pipe, stderr=pipe, **kwargs)
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                *command, stdin=None, stdout=pipe, stderr=pipe, **kwargs)
         out = self._consume_stream(proc.stdout, self.stdout_cb)
         err = self._consume_stream(proc.stderr, self.stderr_cb)
         # should this be awaited?
         asyncio.gather(out, err).add_done_callback(self._stream_consumed)
         return proc
 
-    async def execute(self, *args, **kwargs):
-        process = await self.start(*args, **kwargs)
+    async def execute(self, command, shell=False, **kwargs):
+        process = await self.start(command, shell=shell, **kwargs)
         return await process.wait()

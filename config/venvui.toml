@@ -5,7 +5,8 @@ http_port = 8000
 project_path = "./projects"
 package_path = "./data/pkg"
 temp_path = "./data/tmp"
-venv_path = "./data/venv"
+logs_path = "./data/logs"
+debug_mode = true
 
 [logging]
 disable_existing_loggers = false
