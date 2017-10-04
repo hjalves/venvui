@@ -8,6 +8,9 @@ temp_path = "./data/tmp"
 logs_path = "./data/logs"
 debug_mode = true
 
+
+# Logging configuration
+
 [logging]
 disable_existing_loggers = false
 version = 1
@@ -30,11 +33,23 @@ formatter = "colored"
 level = "DEBUG"
 stream = "ext://sys.stdout"
 
+[logging.handlers.simple]
+class = "logging.StreamHandler"
+formatter = "simple"
+level = "DEBUG"
+stream = "ext://sys.stdout"
+
 [logging.loggers.asyncio]
 level = "DEBUG"
 
+[logging.loggers."aiohttp.access"]
+propagate = false
+
 [logging.loggers.venvui]
 level = "DEBUG"
+
+[logging.loggers."venvui.app.timer"]
+level = "WARNING"
 
 [logging.formatters.colored.log_colors]
 CRITICAL = "red,bg_white"

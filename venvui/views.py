@@ -10,11 +10,7 @@ async def list_projects(request):
     project_svc = request.app['projects']
 
     projects = project_svc.find_projects()
-    return jsonify(projects=[{
-        'key': p.key,
-        'name': p.name,
-        'fullpath': p.fullpath(),
-        'created_at': p.created_at} for p in projects])
+    return jsonify(projects=[p.summary() for p in projects])
 
 
 async def create_project(request):
@@ -23,12 +19,7 @@ async def create_project(request):
 
     project = project_svc.create_project(data['key'], data['name'])
 
-    return jsonify({
-        'key': project.key,
-        'name': project.name,
-        'fullpath': project.fullpath(),
-        'created_at': project.created_at
-    })
+    return jsonify(project.summary())
 
 
 async def get_project(request):
@@ -38,12 +29,7 @@ async def get_project(request):
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
 
-    return jsonify({
-        'key': project.key,
-        'name': project.name,
-        'fullpath': project.fullpath(),
-        'created_at': project.created_at
-    })
+    return jsonify(project.summary())
 
 
 async def list_packages(request):

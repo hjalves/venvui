@@ -114,9 +114,11 @@ async def timer_middleware(app, handler):
         now = time()
         response = await handler(request)
         elapsed = (time() - now) * 1000
-        logger.debug("Elapsed: %.3f ms", elapsed)
-        if response:
-            response.headers['X-Elapsed'] = "%.3f" % elapsed
+        timer_logger = logger.getChild('timer')
+        timer_logger.log(logging.DEBUG if elapsed <= 100 else logging.WARNING,
+                         "%s: %.3f ms", request.rel_url, elapsed)
+        if response and not response.prepared:
+            response.headers['X-Elapsed'] = "%.3f ms" % elapsed
         return response
     return middleware_handler
 
@@ -135,7 +137,8 @@ async def error_middleware(app, handler):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.exception("Exception while handling request:")
+            logger.exception("Exception while handling request %s:",
+                             request.rel_url)
             return json_error('%s: %s' % (e.__class__.__name__, e), 500)
     return middleware_handler
 
