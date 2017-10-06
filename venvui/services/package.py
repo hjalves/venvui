@@ -28,7 +28,7 @@ class PackageService:
         d = {'type': 'unknown',
              'path': str(path),
              'size': path.stat().st_size,
-             'modified': datetime.fromtimestamp(path.stat().st_mtime),
+             'modified': datetime.utcfromtimestamp(path.stat().st_mtime),
              'filename': str(path.name)}
         pkg = None
 

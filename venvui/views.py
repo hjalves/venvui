@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from aiohttp import web
-from aiohttp.web_response import StreamResponse
 
 from venvui.utils.misc import jsonify, jsonbody, ndjsonify
 
@@ -124,7 +123,7 @@ async def get_config_file(request):
     project = project_svc.get_project(name)
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
-    config = project.get_config_file(config_name, generated)
+    config = project.get_config_file(config_name)
     if not config:
         raise web.HTTPNotFound(reason="Config file not found")
     return jsonify(config)

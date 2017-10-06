@@ -4,11 +4,10 @@ import logging
 from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
+from string import Template
 
 import toml
 from os import getenv
-
-from venvui.utils.confgen import ConfigGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +15,14 @@ logger = logging.getLogger(__name__)
 class ProjectService:
 
     def __init__(self, project_root, deployment_svc, package_svc,
-                 systemd_svc):
+                 systemd_svc, config_svc):
         self.project_root = Path(project_root)
         assert self.project_root.exists()
         assert self.project_root.is_dir()
         self.deployment_svc = deployment_svc
         self.package_svc = package_svc
         self.systemd_svc = systemd_svc
+        self.config_svc = config_svc
 
     def create_project(self, key, name):
         path = self.project_root / key
@@ -196,16 +196,9 @@ class Project:
     def get_config_file(self, name, generated=False):
         if name not in self.config.config_files:
             return None
-        config_file = dict(name=name, **self.config.config_files[name])
-
-        config_gen = self._config_generator(name)
-        global_variables = self.variables()
-
-        resolved_path = config_gen.resolved_path(global_variables)
-        config_file['full_path'] = str(resolved_path.absolute())
-
-        if generated:
-            config_file['generated'] = config_gen.generate(global_variables)
+        config_file = self.config.config_files[name]
+        full_path = Path(self.interpolate_var(config_file['path'])).absolute()
+        config_file = dict(name=name, full_path=str(full_path), **config_file)
         return config_file
 
     def list_config_files(self):
@@ -239,20 +232,20 @@ class Project:
         del config_files[name]
         self.change_config(config_files=config_files)
 
-    def _config_generator(self, name):
-        config = self.config.config_files[name]
-        return ConfigGenerator(name, config['template'], config['path'],
-                               config['variables'])
+    def interpolated_variables(self, variables):
+        project_variables = self.variables()
+        return {key: Template(value).substitute(project_variables)
+                for key, value in variables.items()}
 
-    def generate_config_file(self, name, global_variables):
-        config = self._config_generator(name)
-        return config.generate(global_variables)
+    def interpolate_var(self, value):
+        return Template(value).substitute(self.variables())
 
     def install_config_file(self, name):
-        global_variables = self.variables()
-        config = self._config_generator(name)
-        path, config = config.install(global_variables, self.path)
-        config_file = dict(name=name, **self.config.config_files[name])
-        config_file['full_path'] = str(path.absolute())
-        config_file['generated'] = config
+        config_file = self.config.config_files[name]
+        full_path = Path(self.interpolate_var(config_file['path'])).absolute()
+        config_file = dict(name=name, full_path=str(full_path), **config_file)
+        variables = self.interpolated_variables(config_file['variables'])
+        generated = self.svc.config_svc.install_file(
+            config_file['template'], full_path, variables)
+        config_file['generated'] = generated
         return config_file

@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='venvui',
-    version='0.1a2',
+    version='0.1a3',
     description='An user interface to manage Python projects and virtual '
                 'environments.',
     url='https://github.com/hjalves/venvui',
@@ -27,8 +27,10 @@ setup(
         'aiohttp-cors',
         'colorlog',
         'toml',
-        'pkginfo'
+        'pkginfo',
+        'jinja2'
     ],
+    package_data={'venvui': ['templates/*.j2']},
     entry_points={
         'console_scripts': [
             'venvui = venvui.app:main',

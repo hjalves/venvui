@@ -37,8 +37,8 @@ class SystemdManager:
         enabled = out.strip()
         out, err, code = await self._execute('is-active', unit)
         active = out.strip()
-        return {'state': enabled,
-                'active': active}
+        return {'startup': enabled,
+                'status': active}
 
     async def execute(self, unit, command):
         out, err, code = await self._execute(command, unit)

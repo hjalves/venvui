@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import asyncio
+import argparse
 import logging
 import logging.config
 from pathlib import Path
@@ -12,6 +13,7 @@ from aiohttp import web
 import toml
 
 from venvui import views
+from venvui.services import ConfigService
 from venvui.services import ProjectService
 from venvui.services import PackageService
 from venvui.services import DeploymentService
@@ -21,15 +23,25 @@ from venvui.utils.misc import json_error
 logger = logging.getLogger(__name__)
 
 
-def main():
-    config_path = Path('.') / 'config' / 'venvui.toml'
-    config = load_config(config_path)
+def main(args=None):
+    parser = argparse.ArgumentParser(
+        description='VENVUI - Manage your projects and virtual environments.')
+    parser.add_argument('-c', '--config', required=True,
+                        type=argparse.FileType('r'),
+                        help='Configuration file')
+    args = parser.parse_args(args)
+    return app(config_file=args.config)
+
+
+def app(config_file):
+    config = load_config(config_file)
 
     logging.config.dictConfig(config['logging'])
     logging.captureWarnings(True)
     logger.info('Logging configured!')
 
 
+    config_svc = ConfigService()
     package_svc = PackageService(package_root=config['package_path'],
                                  temp_path=config['temp_path'])
     deploy_svc = DeploymentService(temp_path=config['temp_path'],
@@ -38,7 +50,8 @@ def main():
     project_svc = ProjectService(project_root=config['project_path'],
                                  deployment_svc=deploy_svc,
                                  package_svc=package_svc,
-                                 systemd_svc=systemd_svc)
+                                 systemd_svc=systemd_svc,
+                                 config_svc=config_svc)
 
     app = web.Application(middlewares=[timer_middleware, error_middleware],
                           debug=config['debug_mode'])
@@ -54,14 +67,15 @@ def main():
                                           allow_methods='*'),
     })
 
-    setup_routes(app, cors)
+    setup_routes(app, cors, prefix='/api')
+
     web.run_app(app, host=config['http_host'], port=config['http_port'])
 
 
-def setup_routes(app, cors):
+def setup_routes(app, cors, prefix):
 
     def route(path, get=None, post=None, put=None, delete=None):
-        resource = cors.add(app.router.add_resource(path))
+        resource = cors.add(app.router.add_resource(prefix + path))
         if get:
             resource.add_route('GET', get)
         if post:
@@ -95,7 +109,7 @@ def setup_routes(app, cors):
           get=views.get_service,
           delete=views.delete_service)
     route('/projects/{key}/services/{service}/{command}',
-          get=views.service_execute_command)
+          post=views.service_execute_command)
     route('/packages',
           get=views.list_packages,
           post=views.upload_package)
@@ -143,7 +157,9 @@ async def error_middleware(app, handler):
     return middleware_handler
 
 
-def load_config(path):
-    with open(path) as f:
-        config = toml.load(f)
+def load_config(file):
+    if isinstance(file, (str, Path)):
+        file = open(file)
+    with file:
+        config = toml.load(file)
     return config
