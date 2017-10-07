@@ -8,8 +8,8 @@ from venvui.utils.misc import jsonify, jsonbody, ndjsonify
 async def list_projects(request):
     project_svc = request.app['projects']
 
-    projects = project_svc.find_projects()
-    return jsonify(projects=[p.summary() for p in projects])
+    projects = project_svc.list_projects()
+    return jsonify(projects=[p.summary(with_services=True) for p in projects])
 
 
 async def create_project(request):
@@ -28,7 +28,7 @@ async def get_project(request):
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
 
-    return jsonify(project.summary())
+    return jsonify(project.summary(with_services=True))
 
 
 async def list_packages(request):
@@ -192,7 +192,7 @@ async def get_services(request):
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
 
-    services = await project.get_systemd_services()
+    services = project.get_systemd_services()
     return jsonify(services=services)
 
 
@@ -246,3 +246,9 @@ async def delete_service(request):
 
     await project.remove_systemd_service(service)
     return web.HTTPNoContent()
+
+
+async def list_services(request):
+    systemd_svc = request.app['systemd']
+    services = systemd_svc.list_services()
+    return jsonify(services=services)

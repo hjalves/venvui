@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import asyncio
 import logging
 from collections import namedtuple
 from datetime import datetime
@@ -23,25 +24,30 @@ class ProjectService:
         self.package_svc = package_svc
         self.systemd_svc = systemd_svc
         self.config_svc = config_svc
+        # Project cache
+        self.projects = {}
+        task = asyncio.ensure_future(self._load_projects())
+        task.add_done_callback(lambda f: f.result())
 
     def create_project(self, key, name):
         path = self.project_root / key
-        return Project(self, path, name=name).create()
+        project = Project(self, key, path, name=name).create()
+        self.projects[key] = project
 
-    def find_projects(self):
+    def get_project(self, key):
+        return self.projects.get(key)
+
+    def list_projects(self):
+        return list(self.projects.values())
+
+    async def _load_projects(self):
         for child in self.project_root.iterdir():
             try:
-                yield Project(self, child).load()
+                project = await Project(self, child.name, child).load()
+                self.projects[project.key] = project
             except FileNotFoundError:
                 logger.warning("Cannot load project from '%s'", child,
                                exc_info=True)
-
-    def get_project(self, key):
-        try:
-            return Project(self, self.project_root / key).load()
-        except (NotADirectoryError, FileNotFoundError):
-            logger.warning("Cannot load project '%s'", key, exc_info=True)
-            return None
 
     def global_variables(self):
         return {
@@ -58,10 +64,10 @@ class Project:
     venv_pathname = 'venv'
     current_venv_name = 'current'
 
-    def __init__(self, svc, path, **config):
+    def __init__(self, svc, key, path, **config):
         self.svc = svc
         self.path = Path(path)
-        self.key = self.path.name
+        self.key = key
         self.config = ProjectConfig(name=self.key,
                                     created_at=datetime.utcnow(),
                                     config_files={},
@@ -70,17 +76,24 @@ class Project:
         self.config_file = self.path / self.config_filename
         self.venv_path = self.path / self.venv_pathname
 
-    def load(self):
+    async def load(self):
         logger.debug("Loading project '%s' from '%s'", self.key,
                      self.config_file)
         if not self.path.is_dir():
             raise NotADirectoryError("'%s' is not a directory" % self.path)
         if not self.config_file.exists():
             raise FileNotFoundError("File '%s' not found" % self.config_file)
+        # Load config
         with open(self.config_file) as f:
             config = toml.load(f)
         self.config = ProjectConfig(**config)
+        # Init
+        for service in self.config.systemd_services:
+            await self.svc.systemd_svc.add_service(service, self.key)
         return self
+
+    def unload(self):
+        pass
 
     def create(self):
         logger.info("Creating project in: '%s'", self.path)
@@ -104,13 +117,16 @@ class Project:
 
     # Properties
 
-    def summary(self):
-        return {
+    def summary(self, with_services=False):
+        output = {
             'key': self.key,
             'name': self.name,
             'fullpath': self.fullpath,
             'created_at': self.created_at
         }
+        if with_services:
+            output['services'] = self.get_systemd_services(simplified=True)
+        return output
 
     @property
     def name(self):
@@ -172,10 +188,16 @@ class Project:
         systemd_services.remove(service)
         self.change_config(systemd_services=systemd_services)
 
-    async def get_systemd_services(self):
+    async def _get_systemd_services(self):
         services = []
         for service in self.config.systemd_services:
             services.append(await self.get_systemd_service(service))
+        return services
+
+    def get_systemd_services(self, simplified=False):
+        services = self.svc.systemd_svc.list_services(by_project_key=self.key)
+        if simplified:
+            services = {s['name']: s['status'] for s in services}
         return services
 
     async def get_systemd_service(self, service):

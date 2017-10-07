@@ -51,6 +51,9 @@ level = "DEBUG"
 [logging.loggers."venvui.app.timer"]
 level = "WARNING"
 
+[logging.loggers."venvui.services.systemd"]
+level = "INFO"
+
 [logging.formatters.colored.log_colors]
 CRITICAL = "red,bg_white"
 DEBUG = "cyan"

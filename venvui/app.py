@@ -121,6 +121,8 @@ def setup_routes(app, cors, prefix):
           get=views.get_deployment)
     route('/deployments/{key}/log',
           get=views.get_deployment_log)
+    route('/services',
+          get=views.list_services)
 
 
 async def timer_middleware(app, handler):
