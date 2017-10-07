@@ -35,7 +35,8 @@ class Deployment:
         self.started_at = None
         self.stopped_at = None
 
-        self.stream_log.put('new_deployment', key=self.key,
+        self.stream_log.put(event='new_deployment',
+                            key=self.key,
                             project_key=self.project_key,
                             venv_name=self.venv_name,
                             package_filename=self.pkg['filename'],
@@ -45,10 +46,12 @@ class Deployment:
         logger.info("Deployment '%s' is: %s", self.key, self.state)
 
     def stdout_writer(self, line):
-        self.stream_log.put('command_output', channel='out', line=line)
+        line = line.decode('utf-8', 'ignore')
+        self.stream_log.put(event='command_output', channel='out', line=line)
 
     def stderr_writer(self, line):
-        self.stream_log.put('command_output', channel='err', line=line)
+        line = line.decode('utf-8', 'ignore')
+        self.stream_log.put(event='command_output', channel='err', line=line)
 
     def partial_log(self):
         return self.stream_log.retrieve_partial()
@@ -59,7 +62,7 @@ class Deployment:
     async def _run(self):
         self.state = 'running'
         self.started_at = datetime.datetime.utcnow()
-        self.stream_log.put('state_changed', state=self.state)
+        self.stream_log.put(event='state_changed', state=self.state)
         logger.info("Deployment '%s' is: %s", self.key, self.state)
         python_path = '/usr/bin/python3.6'
         #venv_command = ['/opt/python36/bin/python3', '-mvenv']
@@ -85,7 +88,7 @@ class Deployment:
         success = future.result()
         self.state = 'done' if success else 'failed'
         self.stopped_at = datetime.datetime.utcnow()
-        self.stream_log.put('state_changed', state=self.state)
+        self.stream_log.put(event='state_changed', state=self.state)
         self.stream_log.close()
         logger.info("Deployment '%s' is: %s", self.key, self.state)
         if self.callback:
@@ -103,13 +106,13 @@ class Deployment:
                 f.flush()
 
     async def _execute(self, *command, shell=False):
-        if shell:
-            command = command[0]
         now = time.time()
-        self.stream_log.put('command_started', command=command, shell=shell)
-        return_code = await self.sub.execute(command, shell=shell)
+        log_command = command[0] if len(command) == 1 else command
+        self.stream_log.put(event='command_started', command=log_command,
+                            shell=shell)
+        return_code = await self.sub.execute(*command, shell=shell)
         elapsed = time.time() - now
-        self.stream_log.put('command_finished', command=command,
+        self.stream_log.put(event='command_finished', command=log_command,
                             elapsed=elapsed, return_code=return_code)
         return return_code
 

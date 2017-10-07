@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from aiohttp import web
+from aiohttp.web_response import StreamResponse
 
-from venvui.utils.misc import jsonify, jsonbody, ndjsonify
+from venvui.utils.misc import jsonify, jsonbody, ndjsonify, json_dumps
 
 
 async def list_projects(request):
@@ -185,7 +186,7 @@ async def install_config_file(request):
     return jsonify(config)
 
 
-async def get_services(request):
+async def get_project_services(request):
     project_svc = request.app['projects']
     name = request.match_info['key']
     project = project_svc.get_project(name)
@@ -196,7 +197,7 @@ async def get_services(request):
     return jsonify(services=services)
 
 
-async def get_service(request):
+async def get_project_service(request):
     project_svc = request.app['projects']
     name = request.match_info['key']
     service = request.match_info['service']
@@ -208,7 +209,7 @@ async def get_service(request):
     return jsonify(service)
 
 
-async def service_execute_command(request):
+async def project_service_execute_command(request):
     project_svc = request.app['projects']
     name = request.match_info['key']
     service = request.match_info['service']
@@ -252,3 +253,22 @@ async def list_services(request):
     systemd_svc = request.app['systemd']
     services = systemd_svc.list_services()
     return jsonify(services=services)
+
+
+async def get_service(request):
+    systemd_svc = request.app['systemd']
+    service_name = request.match_info['service']
+
+    service = await systemd_svc.get_status(service_name)
+    service['name'] = service_name
+
+    return jsonify(service)
+
+
+async def get_service_log(request):
+    systemd_svc = request.app['systemd']
+    service = request.match_info['service']
+
+    async_gen = systemd_svc.get_log(service)
+    response = await ndjsonify(async_gen, request)
+    return response

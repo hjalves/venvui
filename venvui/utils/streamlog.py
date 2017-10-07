@@ -17,12 +17,13 @@ class StreamLog:
     def __aiter__(self):
         return self.retrieve()
 
-    def put(self, event, **data):
+    def put(self, **data):
         # logger.debug('[%s]: %s', channel, line.replace('\n', ''))
         if not self.open:
             raise EOFError("StreamLog is closed")
-        timestamp = datetime.utcnow()
-        self.stream.append(dict(event=event, time=timestamp, **data))
+        if 'time' not in data:
+            data['time'] = datetime.utcnow()
+        self.stream.append(dict(**data))
         self.written.set()
         self.written.clear()
 

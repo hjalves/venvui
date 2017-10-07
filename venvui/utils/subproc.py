@@ -9,27 +9,21 @@ class SubProcessController:
         self.stdout_cb = stdout_cb
         self.stderr_cb = stderr_cb
 
-    async def _consume_stream(self, stream, cb):
+    async def _consume_stream(self, stream, callback):
         async for line in stream:
-            cb(line.decode('utf-8', 'ignore'))
+            if callback:
+                callback(line)
 
-    def _stream_consumed(self, future):
-        future.result()
-
-    async def start(self, command, shell=False, **kwargs):
+    async def start(self, *command, shell=False, **kw):
         pipe = subprocess.PIPE
-        if shell:
-            proc = await asyncio.create_subprocess_shell(
-                command, stdin=None, stdout=pipe, stderr=pipe, **kwargs)
-        else:
-            proc = await asyncio.create_subprocess_exec(
-                *command, stdin=None, stdout=pipe, stderr=pipe, **kwargs)
+        func = (asyncio.create_subprocess_shell
+                if shell else asyncio.create_subprocess_exec)
+        proc = await func(*command, stdin=None, stdout=pipe, stderr=pipe, **kw)
         out = self._consume_stream(proc.stdout, self.stdout_cb)
         err = self._consume_stream(proc.stderr, self.stderr_cb)
-        # should this be awaited?
-        asyncio.gather(out, err).add_done_callback(self._stream_consumed)
+        asyncio.gather(out, err).add_done_callback(lambda f: f.result())
         return proc
 
-    async def execute(self, command, shell=False, **kwargs):
-        process = await self.start(command, shell=shell, **kwargs)
+    async def execute(self, *command, shell=False, **kwargs):
+        process = await self.start(*command, shell=shell, **kwargs)
         return await process.wait()

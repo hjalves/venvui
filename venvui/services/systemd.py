@@ -14,34 +14,29 @@ class SystemdException(Exception):
 
 class SystemdManager:
 
-    def __init__(self):
+    def __init__(self, logview_svc, polling_time=10):
+        self.logview_svc = logview_svc
         self.cmd_prefix = ['systemctl', '--user', '--no-legend']
         self.services = {}
-        self.running = True
+        self.polling_time = polling_time
         task = asyncio.ensure_future(self.run())
         task.add_done_callback(lambda f: f.result())
 
     async def run(self):
         while True:
             await self._update_active_bulk()
-            await asyncio.sleep(10)
+            await asyncio.sleep(self.polling_time)
 
-    async def add_service(self, name, project_key):
-        logger.debug("Adding service '%s' from '%s'", name, project_key)
-        service = await self._get_status(name)
-        #if 'error' in service:
-        #    raise SystemdException("Error while adding service '%s': %s" %
-        #                           (name, service['error']))
-        service['project_key'] = project_key
-        self.services[name] = service
-        return dict(service)
+    async def add_service(self, service, project_key):
+        logger.debug("Adding service '%s' from '%s'", service, project_key)
+        self.services[service] = {'project_key': project_key}
+        await self._update_status(service)
+        return dict(self.services[service])
 
     async def get_status(self, service):
         if service not in self.services:
             raise KeyError("Service '%s' unknown" % service)
-        updated = await self._get_status(service)
-        # TODO: detect changes
-        self.services[service].update(updated)
+        await self._update_status(service)
         return dict(self.services[service])
 
     def list_services(self, by_project_key=None):
@@ -52,11 +47,17 @@ class SystemdManager:
         return [dict(name=key, **props)
                 for key, props in services]
 
-    async def execute(self, unit, command):
-        out, err, code = await self._execute(command, unit)
+    def get_log(self, service, lines=10):
+        if service not in self.services:
+            raise KeyError("Service '%s' unknown" % service)
+        return self.logview_svc.get_systemd_log(service, lines)
+
+    async def execute(self, service, command):
+        out, err, code = await self._execute(command, service)
         out = out.strip() + err.strip()
         if code != 0:
             raise SystemdException("%s (code: %d)" % (out, code))
+        await self._update_status(service)
         return out
 
     async def _execute(self, *args, **kwargs):
@@ -72,14 +73,15 @@ class SystemdManager:
                      proc.returncode, out, err)
         return out, err, proc.returncode
 
-    async def _get_status(self, service):
+    async def _update_status(self, service):
         output = {}
         out, err, code = await self._execute('is-enabled', service)
         output['startup'] = 'error' if err else out.strip()
         output['error'] = err.strip() if err else None
         out, err, code = await self._execute('is-active', service)
         output['status'] = out.strip()
-        return output
+        # TODO: detect changes
+        self.services[service].update(output)
 
     async def _update_active_bulk(self):
         if not self.services:

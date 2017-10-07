@@ -18,6 +18,7 @@ from venvui.services import ProjectService
 from venvui.services import PackageService
 from venvui.services import DeploymentService
 from venvui.services import SystemdManager
+from venvui.services import LogViewService
 from venvui.utils.misc import json_error
 
 logger = logging.getLogger(__name__)
@@ -40,22 +41,24 @@ def app(config_file):
     logging.captureWarnings(True)
     logger.info('Logging configured!')
 
-
-    config_svc = ConfigService()
+    logview_svc = LogViewService()
+    configfile_svc = ConfigService()
     package_svc = PackageService(package_root=config['package_path'],
                                  temp_path=config['temp_path'])
     deploy_svc = DeploymentService(temp_path=config['temp_path'],
                                    logs_path=config['logs_path'])
-    systemd_svc = SystemdManager()
+    systemd_svc = SystemdManager(logview_svc=logview_svc)
     project_svc = ProjectService(project_root=config['project_path'],
                                  deployment_svc=deploy_svc,
                                  package_svc=package_svc,
                                  systemd_svc=systemd_svc,
-                                 config_svc=config_svc)
+                                 config_svc=configfile_svc)
 
     app = web.Application(middlewares=[timer_middleware, error_middleware],
                           debug=config['debug_mode'])
     app['config'] = config
+    app['configfile'] = configfile_svc
+    app['logview'] = logview_svc
     app['projects'] = project_svc
     app['packages'] = package_svc
     app['deployments'] = deploy_svc
@@ -103,13 +106,13 @@ def setup_routes(app, cors, prefix):
     route('/projects/{key}/configs/{config}/install',
           post=views.install_config_file)
     route('/projects/{key}/services',
-          get=views.get_services,
+          get=views.get_project_services,
           post=views.add_service)
     route('/projects/{key}/services/{service}',
-          get=views.get_service,
+          get=views.get_project_service,
           delete=views.delete_service)
     route('/projects/{key}/services/{service}/{command}',
-          post=views.service_execute_command)
+          post=views.project_service_execute_command)
     route('/packages',
           get=views.list_packages,
           post=views.upload_package)
@@ -123,6 +126,12 @@ def setup_routes(app, cors, prefix):
           get=views.get_deployment_log)
     route('/services',
           get=views.list_services)
+    route('/services/{service}',
+          get=views.get_service)
+    route('/services/{service}/log',
+          get=views.get_service_log)
+    #route('/services/{service}/{command}',
+    #      post=views.service_execute_command)
 
 
 async def timer_middleware(app, handler):
