@@ -17,9 +17,13 @@ def parse_journal_line(line):
         line = line.decode('utf-8', 'ignore')
         obj = json.loads(line)
         timestamp = int(obj['__REALTIME_TIMESTAMP']) / 1e6
+        message = obj['MESSAGE']
+        # message can be a list of bytes (integers between 0 and 255)
+        if isinstance(message, list):
+            message = bytes(message).decode('utf-8', 'ignore')
         obj = {'time': datetime.utcfromtimestamp(timestamp),
                'from': obj.get('SYSLOG_IDENTIFIER'),
-               'message': obj['MESSAGE'],
+               'message': message,
                'transport': obj.get('_TRANSPORT')}
         return obj
     except json.JSONDecodeError:
@@ -31,7 +35,7 @@ class LogViewService:
     def __init__(self):
         pass
 
-    async def get_systemd_log(self, unit, lines=10):
+    async def get_systemd_log(self, unit, lines):
         command = ('journalctl', '--user', '--follow',  '--output=json',
                    '--unit=' + unit, '--lines=%s' % lines,)
         stream_log = StreamLog()

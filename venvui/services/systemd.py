@@ -47,7 +47,7 @@ class SystemdManager:
         return [dict(name=key, **props)
                 for key, props in services]
 
-    def get_log(self, service, lines=10):
+    def get_log(self, service, lines):
         if service not in self.services:
             raise KeyError("Service '%s' unknown" % service)
         return self.logview_svc.get_systemd_log(service, lines)

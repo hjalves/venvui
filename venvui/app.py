@@ -23,6 +23,7 @@ from venvui.utils.misc import json_error
 
 logger = logging.getLogger(__name__)
 
+here_path = Path(__file__).parent
 
 def main(args=None):
     parser = argparse.ArgumentParser(
@@ -54,28 +55,41 @@ def app(config_file):
                                  systemd_svc=systemd_svc,
                                  config_svc=configfile_svc)
 
-    app = web.Application(middlewares=[timer_middleware, error_middleware],
-                          debug=config['debug_mode'])
-    app['config'] = config
-    app['configfile'] = configfile_svc
-    app['logview'] = logview_svc
-    app['projects'] = project_svc
-    app['packages'] = package_svc
-    app['deployments'] = deploy_svc
-    app['systemd'] = systemd_svc
+    subapp = web.Application(middlewares=[timer_middleware, error_middleware],
+                             debug=config['debug_mode'],
+                             logger=logging.getLogger('venvui.access'))
 
-    cors = aiohttp_cors.setup(app, defaults={
+    subapp['config'] = config
+    subapp['configfile'] = configfile_svc
+    subapp['logview'] = logview_svc
+    subapp['projects'] = project_svc
+    subapp['packages'] = package_svc
+    subapp['deployments'] = deploy_svc
+    subapp['systemd'] = systemd_svc
+
+    cors = aiohttp_cors.setup(subapp, defaults={
         "*": aiohttp_cors.ResourceOptions(allow_credentials=True,
                                           allow_headers='*',
                                           allow_methods='*'),
     })
 
-    setup_routes(app, cors, prefix='/api')
+    static = here_path / 'frontend'
+
+    setup_routes(subapp, cors)
+
+    app = web.Application()
+    app.add_subapp('/api', subapp)
+
+    async def index(request):
+        return web.FileResponse(static / 'index.html')
+
+    app.router.add_get('/', index)
+    app.router.add_static('/', static)
 
     web.run_app(app, host=config['http_host'], port=config['http_port'])
 
 
-def setup_routes(app, cors, prefix):
+def setup_routes(app, cors, prefix=''):
 
     def route(path, get=None, post=None, put=None, delete=None):
         resource = cors.add(app.router.add_resource(prefix + path))
@@ -134,38 +148,36 @@ def setup_routes(app, cors, prefix):
     #      post=views.service_execute_command)
 
 
-async def timer_middleware(app, handler):
-    async def middleware_handler(request):
-        now = time()
+@web.middleware
+async def timer_middleware(request, handler):
+    now = time()
+    response = await handler(request)
+    elapsed = (time() - now) * 1000
+    timer_logger = logger.getChild('timer')
+    timer_logger.log(logging.DEBUG if elapsed <= 100 else logging.WARNING,
+                     "%s: %.3f ms", request.rel_url, elapsed)
+    if response and not response.prepared:
+        response.headers['X-Elapsed'] = "%.3f ms" % elapsed
+    return response
+
+
+@web.middleware
+async def error_middleware(request, handler):
+    try:
         response = await handler(request)
-        elapsed = (time() - now) * 1000
-        timer_logger = logger.getChild('timer')
-        timer_logger.log(logging.DEBUG if elapsed <= 100 else logging.WARNING,
-                         "%s: %.3f ms", request.rel_url, elapsed)
-        if response and not response.prepared:
-            response.headers['X-Elapsed'] = "%.3f ms" % elapsed
+        if response and response.status >= 400:
+            return json_error(response.reason, response.status)
         return response
-    return middleware_handler
-
-
-async def error_middleware(app, handler):
-    async def middleware_handler(request):
-        try:
-            response = await handler(request)
-            if response and response.status >= 400:
-                return json_error(response.reason, response.status)
-            return response
-        except web.HTTPException as ex:
-            if ex.status >= 400:
-                return json_error(ex.reason, ex.status)
-            raise
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logger.exception("Exception while handling request %s:",
-                             request.rel_url)
-            return json_error('%s: %s' % (e.__class__.__name__, e), 500)
-    return middleware_handler
+    except web.HTTPException as ex:
+        if ex.status >= 400:
+            return json_error(ex.reason, ex.status)
+        raise
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        logger.exception("Exception while handling request %s:",
+                         request.rel_url)
+        return json_error('%s: %s' % (e.__class__.__name__, e), 500)
 
 
 def load_config(file):

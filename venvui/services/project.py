@@ -56,7 +56,7 @@ class ProjectService:
 
 
 ProjectConfig = namedtuple(
-    'ProjectConfig', 'name created_at config_files systemd_services')
+    'ProjectConfig', 'name created_at config_files services')
 
 
 class Project:
@@ -71,7 +71,7 @@ class Project:
         self.config = ProjectConfig(name=self.key,
                                     created_at=datetime.utcnow(),
                                     config_files={},
-                                    systemd_services=[])
+                                    services=[])
         self.config = self.config._replace(**config)
         self.config_file = self.path / self.config_filename
         self.venv_path = self.path / self.venv_pathname
@@ -88,7 +88,7 @@ class Project:
             config = toml.load(f)
         self.config = ProjectConfig(**config)
         # Init
-        for service in self.config.systemd_services:
+        for service in self.config.services:
             await self.svc.systemd_svc.add_service(service, self.key)
         return self
 
@@ -180,18 +180,18 @@ class Project:
     # Services
 
     def add_systemd_service(self, service):
-        systemd_services = list(self.config.systemd_services)
+        systemd_services = list(self.config.services)
         systemd_services.append(service)
-        self.change_config(systemd_services=systemd_services)
+        self.change_config(services=systemd_services)
 
     def remove_systemd_service(self, service):
-        systemd_services = list(self.config.systemd_services)
+        systemd_services = list(self.config.services)
         systemd_services.remove(service)
-        self.change_config(systemd_services=systemd_services)
+        self.change_config(services=systemd_services)
 
     async def _get_systemd_services(self):
         services = []
-        for service in self.config.systemd_services:
+        for service in self.config.services:
             services.append(await self.get_systemd_service(service))
         return services
 

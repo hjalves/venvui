@@ -269,6 +269,6 @@ async def get_service_log(request):
     systemd_svc = request.app['systemd']
     service = request.match_info['service']
 
-    async_gen = systemd_svc.get_log(service)
+    async_gen = systemd_svc.get_log(service, lines=20)
     response = await ndjsonify(async_gen, request)
     return response
