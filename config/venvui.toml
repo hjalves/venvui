@@ -5,7 +5,7 @@ http_port = 8000
 project_path = "./projects"
 package_path = "./data/pkg"
 temp_path = "./data/tmp"
-logs_path = "/data/logs"
+logs_path = "./data/logs"
 debug_mode = true
 
 
@@ -42,8 +42,8 @@ stream = "ext://sys.stdout"
 [logging.loggers.asyncio]
 level = "DEBUG"
 
-[logging.loggers."aiohttp.access"]
-propagate = false
+[logging.loggers."venvui.access"]
+level = "DEBUG"
 
 [logging.loggers.venvui]
 level = "DEBUG"

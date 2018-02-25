@@ -52,13 +52,10 @@ async def ndjsonify(async_iterator, request):
     response = StreamResponse(status=200, reason='OK')
     response.headers['Content-Type'] = 'application/x-ndjson'
     await response.prepare(request)
-
     async for element in async_iterator:
         text = json_dumps(element) + '\n'
-        response.write(text.encode('utf-8'))
-
+        await response.write(text.encode('utf-8'))
     return response
-
 
 
 async def jsonbody(request):
