@@ -2,10 +2,10 @@
 
 http_host = "0.0.0.0"
 http_port = 8000
-project_path = "/home/dk/Projects/venvui/projects"
-package_path = "/home/dk/Projects/venvui/data/pkg"
-temp_path = "/home/dk/Projects/venvui/data/tmp"
-logs_path = "/home/dk/Projects/venvui/data/logs"
+project_path = "./projects"
+package_path = "./data/pkg"
+temp_path = "./data/tmp"
+logs_path = "/data/logs"
 debug_mode = true
 
 

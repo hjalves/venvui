@@ -33,6 +33,7 @@ class ProjectService:
         path = self.project_root / key
         project = Project(self, key, path, name=name).create()
         self.projects[key] = project
+        return project
 
     def get_project(self, key):
         return self.projects.get(key)
@@ -68,13 +69,17 @@ class Project:
         self.svc = svc
         self.path = Path(path)
         self.key = key
-        self.config = ProjectConfig(name=self.key,
-                                    created_at=datetime.utcnow(),
-                                    config_files={},
-                                    services=[])
-        self.config = self.config._replace(**config)
+        self.config = self.create_config(config)
         self.config_file = self.path / self.config_filename
         self.venv_path = self.path / self.venv_pathname
+
+    def create_config(self, config):
+        cfg = {'name': self.key,
+               'created_at': datetime.utcnow(),
+               'config_files': {},
+               'services': []}
+        cfg.update(config)
+        return ProjectConfig(**cfg)
 
     async def load(self):
         logger.debug("Loading project '%s' from '%s'", self.key,
@@ -104,7 +109,7 @@ class Project:
         return self
 
     def get_config(self):
-        return dict(config._asdict())
+        return dict(self.config._asdict())
 
     def save_config(self):
         logger.debug("Saving project '%s' configuration to '%s'",
