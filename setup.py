@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='venvui',
-    version='0.1a4',
+    version='0.1a6',
     description='An user interface to manage Python projects and virtual '
                 'environments.',
     url='https://github.com/hjalves/venvui',
@@ -30,7 +30,10 @@ setup(
         'pkginfo',
         'jinja2'
     ],
-    package_data={'venvui': ['templates/*.j2']},
+    package_data={'venvui': ['templates/*.j2',
+                             'frontend/*',
+                             'frontend/static/css/*',
+                             'frontend/static/js/*']},
     entry_points={
         'console_scripts': [
             'venvui = venvui.app:main',
