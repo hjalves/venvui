@@ -118,7 +118,7 @@ class Project:
             toml.dump(self.config._asdict(), f)
 
     def change_config(self, **kwargs):
-        self.config._replace(**kwargs)
+        self.config = self.config._replace(**kwargs)
         self.save_config()
 
     # Properties

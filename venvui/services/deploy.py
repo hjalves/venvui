@@ -65,8 +65,7 @@ class Deployment:
         self.stream_log.put(event='state_changed', state=self.state)
         logger.info("Deployment '%s' is: %s", self.key, self.state)
         python_path = '/usr/bin/python3.6'
-        #venv_command = ['/opt/python36/bin/python3', '-mvenv']
-        create_venv_command = ['/usr/bin/virtualenv', '-p/usr/bin/python3.6']
+        create_venv_command = ['/usr/bin/virtualenv', '-p' + python_path]
         pip_path = self.venv_path / 'bin' / 'pip'
         #await self._execute('ping -c10 127.0.0.1', shell=True)
         await self._execute(*create_venv_command, str(self.venv_path))

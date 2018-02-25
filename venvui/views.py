@@ -139,7 +139,7 @@ async def add_config_file(request):
 
     data = await jsonbody(request)
     project.add_config_file(data['name'], data['template'], data['path'],
-                            data['vars'])
+                            data['variables'])
     config = project.get_config_file(data['name'])
     return jsonify(config)
 
