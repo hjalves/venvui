@@ -229,7 +229,7 @@ async def add_service(request):
     project_svc = request.app['projects']
     name = request.match_info['key']
     project = project_svc.get_project(name)
-    project_svc.add_service(name)
+    project.add_service(name)
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
     data = await jsonbody(request)
