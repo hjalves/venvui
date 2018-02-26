@@ -229,11 +229,10 @@ async def add_service(request):
     project_svc = request.app['projects']
     name = request.match_info['key']
     project = project_svc.get_project(name)
-    project.add_service(name)
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
     data = await jsonbody(request)
-    await project.add_systemd_service(data['service'])
+    project.add_systemd_service(data['service'])
     return web.HTTPNoContent()
 
 
@@ -245,7 +244,7 @@ async def delete_service(request):
     if not project:
         raise web.HTTPNotFound(reason="Project not found")
 
-    await project.remove_systemd_service(service)
+    project.remove_systemd_service(service)
     return web.HTTPNoContent()
 
 

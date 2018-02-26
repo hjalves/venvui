@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='venvui',
-    version='0.1a8',
+    version='0.1a10',
     description='An user interface to manage Python projects and virtual '
                 'environments.',
     url='https://github.com/hjalves/venvui',
